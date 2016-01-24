@@ -108,7 +108,6 @@ P.solver = 'fmincon';
 %% ----------------------------------------------------------
 %   SAVE RESULTS
 % -----------------------------------------------------------
-
 Soln.grid.time = tSoln;
 Soln.grid.state = xSoln;
 Soln.grid.control = uSoln;
