@@ -13,6 +13,7 @@ clc; clear;
 
 % Add paths
 addpath('../../');
+addpath('../../methods');
 %% ----------------------------------------------------------
 %   MODEL PROPERTIES
 %   Intialize your dynamic model parameter values and dyanmics
