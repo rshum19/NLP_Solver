@@ -15,24 +15,15 @@ nGrid = OCP.options.nGrid;
 %% ----------------------------------------------------------
 %   FORMAT INITIAL GUESS
 % -----------------------------------------------------------
-switch OCP.options.IGtype
-    case 'linear'
-        % Interpolate the guess at the grid-points for transcription:
-        guess.tSpan = IG.time([1,end]);
-        guess.time = linspace(guess.tSpan(1), guess.tSpan(2), nGrid);
-        guess.state = interp1(IG.time', IG.state', guess.time')';
-        guess.control = interp1(IG.time', IG.control', guess.time')';
+% Interpolate the guess at the grid-points for transcription:
+guess.tSpan = IG.time([1,end]);
+guess.time = linspace(guess.tSpan(1), guess.tSpan(2), nGrid);
+guess.state = interp1(IG.time', IG.state', guess.time')';
+guess.control = interp1(IG.time', IG.control', guess.time')';
 
-        % Mux intial guess
-        [q0, packSize] = mux(guess.time,guess.state,guess.control);
+% Mux intial guess
+[q0, packSize] = mux(guess.time,guess.state,guess.control);
 
-    case 'custom'
-        % Mux intial guess
-        [q0, packSize] = mux(IG.time,IG.state, IG,control);
-    
-    otherwise
-        error('Invalid initial guess type)');
-end
 %% ----------------------------------------------------------
 %   COST/OBJECTIVE FUNCTION
 % -----------------------------------------------------------
@@ -55,6 +46,8 @@ P.objective = @(z)myCostFnc(z,packSize,OCP.pathCostFnc,OCP.bndCostFnc,weights);
 switch OPT.method
     case 'euler';
         defects = @euler;
+    case 'euler_back';
+        defects = @euler;
     case 'trapezoidal'
         defects = @trapezoid;
     case 'hermiteSimpson'
@@ -67,7 +60,6 @@ P.nonlcon = @(z)myConstraints(z,packSize,defects,dynamics,OCP.pathCst, OCP.bndCs
 
 % LINEAR BOUNDARY CONSTRAINTS
 % ---------------------------
-
 % Mux lower bounds
 time.lb = linspace(Bnds.initTime.lb, Bnds.finalTime.lb, nGrid);
 state.lb = [Bnds.initState.lb, Bnds.state.lb*ones(1,nGrid-2), Bnds.finalState.lb];
@@ -80,25 +72,15 @@ state.ub = [Bnds.initState.ub, Bnds.state.ub*ones(1,nGrid-2), Bnds.finalState.ub
 ctrl.ub = Bnds.control.ub*ones(1,nGrid);
 ub = mux(time.ub, state.ub, ctrl.ub);
 
-%%% TODO
-% Complimentary constraints 
-%  add this for Contact Invariant Optimization
-
-
 %% ----------------------------------------------------------
 %   FMINCON
 % -----------------------------------------------------------
-%P.objetive = @cost;
-%P.nonlcon = @nonlcon2;
 P.x0 = q0;
 P.lb = lb;
 P.ub = ub;
 P.Aineq = []; P.bineq = [];
 P.Aeq = []; P.beq = [];
-
-P.options = optimoptions('fmincon','Display','iter','MaxFunEval',1e5,'TolFun',1e-4);
-
-%P.options = OPT.fminOpt;
+P.options = OPT.fminOpt;
 P.solver = 'fmincon';
 
 [zSoln, objVal,exitFlag,output] = fmincon(P);
@@ -108,6 +90,7 @@ P.solver = 'fmincon';
 %% ----------------------------------------------------------
 %   SAVE RESULTS
 % -----------------------------------------------------------
+Soln = struct('info',[],'grid',[],'interp',[],'guess',[],'time',[]);
 Soln.grid.time = tSoln;
 Soln.grid.state = xSoln;
 Soln.grid.control = uSoln;
@@ -115,8 +98,12 @@ Soln.grid.control = uSoln;
 %Soln.interp.state = @(t)( interp1(tSoln',xSoln',t','linear',nan)' );
 fSoln = dynamics(tSoln,xSoln,uSoln);
 Soln.interp.state = @(t)( bSpline2(tSoln,xSoln,fSoln,t) );
-
 Soln.interp.control = @(t)( interp1(tSoln',uSoln',t','linear',nan)' );
+
+% Solver output information
+Soln.info.objVal = objVal;
+Soln.info.exitFlag = exitFlag;
+Soln.info.output = output;
 
 end
 
@@ -165,7 +152,7 @@ if isempty(pathCostFnc)
 else
     dt = (t(end)-t(1))/(packSize.nTime-1);
     integrand = pathCostFnc(t,x,u);  %Calculate the integrand of the cost function
-    integralCost = dt*integrand*weights;  %Trapazoidal integration
+    integralCost = sum(dt*integrand*weights);  %Trapazoidal integration
 end
 
 % Compute the cost at the boundaries of the trajectory
@@ -174,11 +161,7 @@ end
 if isempty(bndCostFnc)
     bndCost = 0;
 else
-    t0 = t(1);
-    tF = t(end);
-    x0 = x(:,1);
-    xF = x(:,end);
-    bndCost = bndCostFnc(t0,x0,u0,tF,xF,uF);
+    bndCost = bndCostFnc(t,x,u);
 end
 
 cost = bndCost + integralCost;
@@ -196,8 +179,8 @@ function [c, ceq] = myConstraints (z,packSize,defects,dynamics,pathCst, bndCst)
 % Numerically evaluate dynamics 
 dt = (t(end)-t(1))/(length(t)-1);
 f = dynamics(t,x,u);
-
-ceq_dyn = defects(dt,x,f); % check if needs reshaping so its a column vector;
+ceq_dyn = defects(dt,x,f);
+ceq_dyn  = reshape(ceq_dyn,numel(ceq_dyn),1);
 
 % S.T. Nonlinear Boundary
 if isempty(bndCst);
