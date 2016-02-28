@@ -80,8 +80,8 @@ OCP.bounds.state.lb = [-inf; 0; 0; -inf(2,1)];
 OCP.bounds.state.ub = [inf; pi; 2*pi/3; inf(2,1)];
 OCP.bounds.initState.lb =  [0; 0; 0; 0; 0];
 OCP.bounds.initState.ub =  [0; 0; 0; 0; 0];
-OCP.bounds.finalState.lb = [pi; 0; 0; zeros(2,1)];
-OCP.bounds.finalState.ub = [pi; 0*pi; 0*2*pi/3; zeros(2,1)];
+OCP.bounds.finalState.lb = [3*pi; 0; 0; zeros(2,1)];
+OCP.bounds.finalState.ub = [3*pi; 0*pi; 0*2*pi/3; zeros(2,1)];
 
 maxAngVel = 300*5; 
 OCP.bounds.control.lb = [-maxAngVel; -maxAngVel];
@@ -147,8 +147,8 @@ u = soln(end).interp.control(t);
 % Save results
 solnFolderName = 'solution';
 fileName = 'threeLink_ornt_soln';
-overWrite = 1;
-Notes = 'With drift test';
+overWrite = 0;
+Notes = 'With drift test for 3pi';
 saveResults(solnFolderName, fileName, overWrite, soln,OCP,Notes)
 %% ----------------------------------------------------------
 %   PLOT RESULTS

@@ -3,7 +3,7 @@ addpath('solution')
 % Load data to compare
 fprintf('--- Loading optimziation results data...')
 data1 = load('threeLink_ornt_soln12.mat');
-data2 = load('threeLink_ornt_soln10.mat');
+data2 = load('threeLink_ornt_soln11.mat');
 fprintf('DONE\n')
 
 % Plot result set #1

@@ -1,0 +1,12 @@
+%%%% MAT Files:
+
+% Optimal output with no drift:
+threeLink_ornt_soln10.mat
+
+
+%Optimal output with drift for PI
+threeLink_ornt_soln12.mat
+
+%Optimal output with drift for 3PI
+threeLink_ornt_soln13.mat
+
