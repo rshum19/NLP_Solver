@@ -45,7 +45,9 @@ hold on
 %%%% Segment 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
   %% Draw Leg
    l = b - R(-theta2)*[0;(l2/2)] - R(-theta2+alpha3)*[0;l3/2] ; %% leg geometric center 
+   %cl = [0.9763,0.9831,0.0538];
    ellipse(r3/2,l3/2,-theta2+alpha3,l(1),l(2),'b');
+  
   
   %% Mark CoM   
    l_cm = l + R(-theta2+alpha3)*[0;((l3/2) - lc3)];  %% leg center of mass

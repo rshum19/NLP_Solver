@@ -83,7 +83,7 @@ OCP.bounds.initState.ub =  [0; 0; 0; 0; 0];
 OCP.bounds.finalState.lb = [3*pi; 0; 0; zeros(2,1)];
 OCP.bounds.finalState.ub = [3*pi; 0*pi; 0*2*pi/3; zeros(2,1)];
 
-maxAngVel = 300*5; 
+maxAngVel = 300*10; 
 OCP.bounds.control.lb = [-maxAngVel; -maxAngVel];
 OCP.bounds.control.ub = [maxAngVel; maxAngVel];
 
@@ -148,7 +148,7 @@ u = soln(end).interp.control(t);
 solnFolderName = 'solution';
 fileName = 'threeLink_ornt_soln';
 overWrite = 0;
-Notes = 'With drift test for 3pi';
+Notes = 'Without drift test for 3pi';
 saveResults(solnFolderName, fileName, overWrite, soln,OCP,Notes)
 %% ----------------------------------------------------------
 %   PLOT RESULTS

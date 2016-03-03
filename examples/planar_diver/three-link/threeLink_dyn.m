@@ -1,6 +1,6 @@
 function [dx] = threeLink_dyn(t,x,u,d)
 
-gen_mom_th = 48.0851/2.5;
+gen_mom_th = 48.0851/2.5*0;
 l1=d.l1;
 l2=d.l2;
 l3=d.l3;
