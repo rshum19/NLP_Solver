@@ -1,4 +1,4 @@
-function [ Soln ] = OptCtrlSolver( OCP )
+function [ Soln ] = OptCtrlSolver_wSNOPT( OCP )
 %OPTCTRLSOLVER solves a user defined Optimal Control Problem 
 %   Detailed explanation goes here
 
@@ -22,7 +22,7 @@ guess.state = interp1(IG.time', IG.state', guess.time')';
 guess.control = interp1(IG.time', IG.control', guess.time')';
 
 % Mux intial guess
-[q0, packSize] = mux(guess.time,guess.state,guess.control);
+[P.x_0, packSize] = mux(guess.time,guess.state,guess.control);
 
 %% ----------------------------------------------------------
 %   COST/OBJECTIVE FUNCTION
@@ -33,9 +33,16 @@ guess.control = interp1(IG.time', IG.control', guess.time')';
 % change so they are method specific
 weights = ones(nGrid,1);
 weights([1,end]) = 0.5;
-P.objective = @(z)myCostFnc(z,packSize,OCP.pathCostFnc,OCP.bndCostFnc,weights);
+P.objective = @(z,Prob)myCostFnc(z,packSize,OCP.pathCostFnc,OCP.bndCostFnc,weights);
 
+% GRADIENT
+% ---------------------------
+P.grad = [];
 
+% HESSIAN
+% ---------------------------
+P.Hessian = [];
+P.HessPattern = [];
 %% ----------------------------------------------------------
 %   CONSTRAINTS
 % -----------------------------------------------------------
@@ -47,7 +54,7 @@ switch OPT.method
     case 'euler';
         defects = @euler;
     case 'euler_back';
-        defects = @euler_backward;
+        defects = @euler;
     case 'trapezoidal'
         defects = @trapezoid;
     case 'hermiteSimpson'
@@ -56,7 +63,30 @@ switch OPT.method
         error('You have selected an invalid method');
 end
 
-P.nonlcon = @(z)myConstraints(z,packSize,defects,dynamics,OCP.pathCst, OCP.bndCst);
+nonlcon = @(z,Prob)myConstraints(z,packSize,defects,dynamics,OCP.pathCst, OCP.bndCst);
+P.c = nonlcon;
+P.dc = [];
+P.d2c = [];
+P.ConsPattern = [];
+
+%c = [c_path; c_bnd; ceq_dyn; ceq_path; ceq_bnd];
+c_pathN = 0;
+c_bndN = 0;
+ceq_pathN = 0;
+ceq_bndN = 0;
+
+% Dynamics
+ceq_dynN = nGrid*packSize.nState - packSize.nState;
+
+% Nonlinear Equality constraints boundaries
+ceq_bnds = zeros(ceq_dynN + ceq_pathN + ceq_bndN,1);
+
+% Nonlinear Inequality constraints boundaries
+c_Ubnds = zeros(c_pathN + c_bndN,1);
+c_Lbnds = -inf(c_pathN + c_bndN,1);
+
+P.c_L = [c_Lbnds; ceq_bnds];
+P.c_U = [c_Ubnds; ceq_bnds];
 
 % LINEAR BOUNDARY CONSTRAINTS
 % ---------------------------
@@ -65,33 +95,54 @@ time.lb = linspace(Bnds.initTime.lb, Bnds.finalTime.lb, nGrid);
 state.lb = [Bnds.initState.lb, Bnds.state.lb*ones(1,nGrid-2), Bnds.finalState.lb];
 ctrl.lb = Bnds.control.lb*ones(1,nGrid);
 lb = mux(time.lb, state.lb, ctrl.lb);
+P.x_L = lb;
 
 % Mux upper bounds
 time.ub = linspace(Bnds.initTime.ub, Bnds.finalTime.ub, nGrid);
 state.ub = [Bnds.initState.ub, Bnds.state.ub*ones(1,nGrid-2), Bnds.finalState.ub];
 ctrl.ub = Bnds.control.ub*ones(1,nGrid);
 ub = mux(time.ub, state.ub, ctrl.ub);
+P.x_U = ub;
 
 %% ----------------------------------------------------------
 %   FMINCON
 % -----------------------------------------------------------
-P.x0 = q0;
-P.lb = lb;
-P.ub = ub;
-P.A= []; P.b = [];
-P.Aeq = []; P.beq = [];
-P.options = OPT.fminOpt;
-P.solver = 'fmincon';
+% P.x0 = q0;
+% P.lb = lb;
+% P.ub = ub;
+% P.Aineq = []; P.bineq = [];
+% P.Aeq = []; P.beq = [];
+% P.options = OPT.fminOpt;
+% P.solver = 'fmincon';
+% 
+% [zSoln, objVal,exitFlag,output] = fmincon(P);
+% 
+% [tSoln,xSoln,uSoln] = unMux(zSoln,packSize);
 
-%[zSoln, objVal,exitFlag,output] = fmincon(P);
-snscreen on;
-snprint on;
-[zSoln,fVal,exitFlag,lambda,states] = snsolve(P.objective,P.x0,P.A,P.b,P.Aeq,P.beq,P.lb,P.ub,P.nonlcon);
-snprint off;
-snend;
+%% -----------------------------------------------------------
+% SNOPT with TOMLAB
+% -----------------------------------------------------------
+P.pSepFunc = [];
+P.fLowBnd = [];
+P.A = []; P.b_L = []; P.b_U = [];
+P.x_min = []; P.x_max = []; P.f_opt = []; P.x_opt = [];
 
+Prob = conAssign(P.objective,P.grad, P.Hessian, P.HessPattern, P.x_L, P.x_U, OCP.Name, P.x_0, ...
+                            P.pSepFunc, P.fLowBnd, ...
+                            P.A, P.b_L, P.b_U,....
+                            P.c, P.dc, P.d2c, P.ConsPattern, P.c_L, P.c_U, ...
+                            P.x_min, P.x_max, P.f_opt, P.x_opt);
+
+% Solver options
+Prob.Warning = 0;    % Turning off warnings.   
+
+% Run TOMLAB
+%%TODO add OCP variable to pick Solver
+PriLev = 1;
+Result = tomRun('snopt', Prob, PriLev);
+
+zSoln = Result.x_k;
 [tSoln,xSoln,uSoln] = unMux(zSoln,packSize);
-
 %% ----------------------------------------------------------
 %   SAVE RESULTS
 % -----------------------------------------------------------
@@ -99,16 +150,16 @@ Soln = struct('info',[],'grid',[],'interp',[],'guess',[],'time',[]);
 Soln.grid.time = tSoln;
 Soln.grid.state = xSoln;
 Soln.grid.control = uSoln;
-% 
-% Soln.interp.state = @(t)( interp1(tSoln',xSoln',t','linear',nan)' );
-% fSoln = dynamics(tSoln,xSoln,uSoln);
-% Soln.interp.state = @(t)( bSpline2(tSoln,xSoln,fSoln,t) );
-% Soln.interp.control = @(t)( interp1(tSoln',uSoln',t','linear',nan)' );
-% 
+
+%Soln.interp.state = @(t)( interp1(tSoln',xSoln',t','linear',nan)' );
+fSoln = dynamics(tSoln,xSoln,uSoln);
+Soln.interp.state = @(t)( bSpline2(tSoln,xSoln,fSoln,t) );
+Soln.interp.control = @(t)( interp1(tSoln',uSoln',t','linear',nan)' );
+
 % Solver output information
-% Soln.info.objVal = objVal;
-% Soln.info.exitFlag = exitFlag;
-% Soln.info.output = output;
+Soln.info.objVal = Result.f_k;
+Soln.info.exitFlag = Result.ExitFlag;
+Soln.info.Result = Result;
 
 end
 
@@ -173,7 +224,7 @@ cost = bndCost + integralCost;
 
 end
 
-function [c, ceq] = myConstraints (z,packSize,defects,dynamics,pathCst, bndCst)
+function [c] = myConstraints (z,packSize,defects,dynamics,pathCst, bndCst)
 
 % Unmux state
 [t,x,u] = unMux(z, packSize);
@@ -193,6 +244,8 @@ if isempty(bndCst);
     ceq_bnd = [];
 else
     [c_bnd, ceq_bnd] = bndCst(t0,x0,u0,tF,xF,uF);
+    c_bnd = c_bnd;
+    ceq_bnd = ceq_bnd;
 end
 
 % S.T. Path
@@ -201,19 +254,12 @@ if isempty(pathCst)
     ceq_path = [];
 else
     [c_path, ceq_path] = pathCst(t,x,u);
+    c_path = c_path;
+    ceq_path = ceq_path;
 end
 
-% Print constraints number
-fprintf('\nNumber of constraints: \n')
-fprintf('Dynamics: %d |',numel(ceq_dyn));
-[nInvalCst, invalCst] = checkCst(ceq_dyn);
-invalCst
-fprintf('Path: %d |', numel(ceq_path));
-[nInvalCst, invalCst] = checkCst(ceq_path);
-
 % Costruct constraints vectors
-c = [c_path; c_bnd];
-ceq = [ceq_dyn; ceq_path; ceq_bnd];
+c = [c_path; c_bnd; ceq_dyn; ceq_path; ceq_bnd];
 end
 
 function x = bSpline2(tGrid,xGrid,fGrid,t)
@@ -295,18 +341,4 @@ fUpp = fUpp*col;
 fDel = (0.5/h)*(fUpp-fLow);
 x = delta.*(delta.*fDel + fLow) + xLow;
 
-end
-
-function [nInvalCst, invalCst] = checkCst(cst)
-
-invalCst = [];
-nInvalCst = 0;
-for i = 1:numel(cst)
-    if cst(i) ~= 0
-        nInvalCst = nInvalCst + 1;
-        invalCst = [invalCst, i];
-    end
-end
-
-fprintf('%d/%d invalid constraints\n',nInvalCst,numel(cst));
 end
