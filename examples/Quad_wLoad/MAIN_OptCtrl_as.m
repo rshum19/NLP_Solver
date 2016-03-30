@@ -85,17 +85,18 @@ OCP.bounds.finalTime.ub = tF;
 
 % State:
 % q = xL; vL; q; omega; reshape(R, 9,1);Omega;l;dl];
-OCP.bounds.state.lb = [-1;0;0; -5*ones(3,1); -ones(3,1); -5*ones(3,1); -ones(9,1); -5*ones(3,1)];% 0; -inf];
-OCP.bounds.state.ub = [2;0;0; 5*ones(3,1); ones(3,1); 5*ones(3,1); ones(9,1); 5*ones(3,1)];% 1; inf];
+OCP.bounds.state.lb = [-1;0;0; -10*ones(3,1); -ones(3,1); -10*ones(3,1); -ones(9,1); -10*ones(3,1)];% 0; -inf];
+OCP.bounds.state.ub = [2;0;0; 10*ones(3,1); ones(3,1); 10*ones(3,1); ones(9,1); 10*ones(3,1)];% 1; inf];
 OCP.bounds.initState.lb =  [xL; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
 OCP.bounds.initState.ub =  [xL; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
-OCP.bounds.finalState.lb = [[1;0;0]; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
-OCP.bounds.finalState.ub = [[1;0;0]; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
-
+OCP.bounds.finalState.lb = [1;0;0; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
+OCP.bounds.finalState.ub = [1;0;0; vL; q; omega; reshape(R, 9,1);Omega];%l;dl];
+OCP.bounds.finalState.lb = [1;0;0; -10*ones(3,1); -ones(3,1); -10*ones(3,1); -ones(9,1); -10*ones(3,1)];% 0; -inf];
+OCP.bounds.finalState.ub = [1;0;0; 10*ones(3,1); ones(3,1); 10*ones(3,1); ones(9,1); 10*ones(3,1)];% 1; inf];
 % Control:
 maxAngVel = 300*10; 
 OCP.bounds.control.lb = [0; -100*ones(3,1)];
-OCP.bounds.control.ub = [50; 100*ones(3,1)];
+OCP.bounds.control.ub = [100; 100*ones(3,1)];
 
 %% ----------------------------------------------------------
 %   SOLVER OPTIONS
